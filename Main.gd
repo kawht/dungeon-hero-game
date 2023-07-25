@@ -3,13 +3,18 @@ extends Node2D
 var Room = preload("res://room.tscn")
 var Rooms
 @onready var Map = $TileMap
-var tile_size = 32
-var num_rooms = 30
-var min_size = 5
-var max_size = 15
-var hspread = 100
-var cull = 0.5
-@export var map_border_size = 80 # unit of tiles
+
+# Map generation specs
+const TILE_SIZE = 32
+const AMOUNT_ROOMS = 30
+const ROOM_MAX_SIZE_TILES = 30
+const ROOM_MIN_SIZE_TILES = 10
+const ROOM_H_SPREAD = 50
+const ROOM_CULL_PERCENTAGE = 0.3
+const ROOM_INNER_MARGIN = 3
+
+
+@export var map_border_size = 150 # unit of tiles
 var room_positions = []
 var path #Astar
 var temp_count = 0
@@ -53,20 +58,21 @@ func generate_new_floor():
 	path = find_mst(room_positions)
 	print("path finding complete... waiting for input")
 	make_map()
-	#cleanup()
-#	await get_tree().create_timer(2).timeout
+	await get_tree().create_timer(1).timeout
+	cleanup()
 #	reset_gen()
 
 func make_rooms():
 	# create node to contain all rooms
 	Rooms = Node.new()
 	add_child(Rooms)
-	for i in num_rooms:
-		var pos = Vector2(randf_range(-hspread, hspread), 0.0)
+	for i in AMOUNT_ROOMS:
+		var pos = Vector2(randf_range(-ROOM_H_SPREAD, ROOM_H_SPREAD), 0.0)
 		var r = Room.instantiate()
-		var w = randi_range(min_size, max_size)
-		var h = randi_range(min_size, max_size)
-		r.make_room(pos, Vector2(w,h)*tile_size)
+		var w = randi_range(ROOM_MIN_SIZE_TILES, ROOM_MAX_SIZE_TILES)
+		var h = randi_range(ROOM_MIN_SIZE_TILES, ROOM_MAX_SIZE_TILES)
+		print("room size of newly made room is "+str(Vector2(w,h)))
+		r.make_room(pos, Vector2(w,h)*TILE_SIZE)
 		Rooms.add_child(r)
 	print("Rooms created... waiting for settle")
 	# wait for all rooms to emit the signal that they are no longer moving
@@ -78,7 +84,7 @@ func cull_rooms():
 	# get all rooms that are generated
 	for room in Rooms.get_children():
 		# cull %
-		if randf() < cull:
+		if randf() < ROOM_CULL_PERCENTAGE:
 			room.state = room.states.CULLED
 			room.queue_free()
 		else:
@@ -112,10 +118,11 @@ func make_map():
 	var map_rect = Rect2()
 	for room in Rooms.get_children():
 		#if room.state == room.states.CULLED:
-		var r = Rect2(room.position-(room.size/2), room.get_node("CollisionShape").shape.size)
+		var r = Rect2(room.position, room.get_node("CollisionShape").shape.size)
 		map_rect = map_rect.merge(r)
 	var topleft = Map.local_to_map(map_rect.position)
 	var bottomright = Map.local_to_map(map_rect.end)
+	# create border black tiles
 	for x in range(-map_border_size, map_border_size):
 		for y in range(-map_border_size, map_border_size):
 			if !is_tile(Vector2i(x,y), tiles.white):
@@ -126,22 +133,27 @@ func make_map():
 		if not room.state == room.states.CULLED:
 			temp_count += 1
 			# convert room size in px to amount of tiles, floored to smallest fittable
-			var size_of_room = (room.size/tile_size)
-			var room_map_position = Map.local_to_map(room.position)
-			var room_topleftcorner = (room.position / tile_size) - size_of_room
-			for x in range(2, size_of_room.x * 2 - 1):
-				for y in range(2, size_of_room.y * 2):
-					Map.set_cell(0, Vector2(room_topleftcorner.x + x, room_topleftcorner.y + y), 0, tiles.white)
+			var room_size_map = (room.size / TILE_SIZE).floor()
+			print("proccess room size of "+str(room_size_map))
+			var room_position_map = Map.local_to_map(room.position)
+			var room_topleftcorner_map = room_position_map - Vector2i(room_size_map/2)
+			print("top left corner is "+str(room_topleftcorner_map))
+			for x in range(3, room_size_map.x - 2):
+				for y in range(3, room_size_map.y - 2):
+					Map.set_cell(0, Vector2(room_topleftcorner_map.x + x, room_topleftcorner_map.y + y), 0, tiles.white)
 			
 			# Carve out corridors
-			var p = path.get_closest_point(room.position, 0)
-			
-			for conn in path.get_point_connections(p):
-				if not conn in corridors:
-					var start = Map.local_to_map(path.get_point_position(p))
-					var end = Map.local_to_map(path.get_point_position(conn))
+			var closest_point_id = path.get_closest_point(room.position, false)
+
+			# for every connection belonging to point that was close to room
+			for connection in path.get_point_connections(closest_point_id):
+				# carve path if it hasnt already been
+				if not connection in corridors:
+					var start = Map.local_to_map(path.get_point_position(closest_point_id))
+					var end = Map.local_to_map(path.get_point_position(connection))
 					carve_path(start, end)
-			corridors.append(p)
+				corridors.append(closest_point_id)
+				corridors.append(connection)
 					
 	print(temp_count)
 	print(Rooms.get_child_count())
@@ -179,7 +191,7 @@ func carve_path(start,end):
 		set_tile(Vector2(x, x_y.y + y_diff), tiles.white)
 	for y in range(start.y, end.y, y_diff):
 		set_tile(Vector2(y_x.x, y), tiles.white)
-		set_tile(Vector2(y_x.x, y + x_diff), tiles.white)
+		set_tile(Vector2(y_x.x + x_diff, y), tiles.white)
 
 func set_tile(tile_coords: Vector2, tile_type: Vector2i, tile_layer: int = 0, source_id: int = 0) -> void:
 	Map.set_cell(tile_layer, tile_coords, source_id, tile_type)

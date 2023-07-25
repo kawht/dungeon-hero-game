@@ -20,7 +20,7 @@ sources/0 = SubResource("TileSetAtlasSource_w6cu3")
 script = ExtResource("1_hquvg")
 
 [node name="Camera2D" type="Camera2D" parent="."]
-zoom = Vector2(0.405, 0.405)
+zoom = Vector2(0.195, 0.195)
 
 [node name="TileMap" type="TileMap" parent="."]
 show_behind_parent = true
