@@ -1,0 +1,28 @@
+[gd_scene load_steps=5 format=3 uid="uid://cv8i3l77i1ao0"]
+
+[ext_resource type="Texture2D" uid="uid://dgo6ljjkwh75y" path="res://img/tileset-5.png" id="1_ssum3"]
+[ext_resource type="Script" path="res://MazeGenerator.gd" id="2_dm88k"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_5wo50"]
+texture = ExtResource("1_ssum3")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+4:0/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_shbie"]
+tile_size = Vector2i(32, 32)
+terrain_set_0/mode = 1
+terrain_set_0/terrain_0/name = "Maze"
+terrain_set_0/terrain_0/color = Color(0.5, 0.34375, 0.25, 1)
+sources/1 = SubResource("TileSetAtlasSource_5wo50")
+
+[node name="MazeScene" type="Node2D"]
+
+[node name="TileMap" type="TileMap" parent="."]
+tile_set = SubResource("TileSet_shbie")
+cell_quadrant_size = 32
+format = 2
+script = ExtResource("2_dm88k")
