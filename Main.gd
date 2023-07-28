@@ -1,5 +1,8 @@
 extends Node2D
 
+# notes 72823
+# make corridors start one tile away
+
 var Room = preload("res://room.tscn")
 var Rooms
 @onready var Map = $TileMap
