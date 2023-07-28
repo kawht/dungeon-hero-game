@@ -8,13 +8,12 @@ var Rooms
 const TILE_SIZE = 32
 const AMOUNT_ROOMS = 30
 const ROOM_MAX_SIZE_TILES = 30
-const ROOM_MIN_SIZE_TILES = 10
+const ROOM_MIN_SIZE_TILES = 15
 const ROOM_H_SPREAD = 50
 const ROOM_CULL_PERCENTAGE = 0.3
 const ROOM_INNER_MARGIN = 3
+const map_border_size = 150 # unit of tiles
 
-
-@export var map_border_size = 150 # unit of tiles
 var room_positions = []
 var path #Astar
 var temp_count = 0
@@ -44,7 +43,7 @@ func _input(event):
 	if event.is_action_pressed("ui_accept"):
 		reset_gen()
 	if event.is_action_pressed("ui_focus_next"):
-		print("[input] generating tileset...")
+		#print("[input] generating tileset...")
 		make_map()
 
 
@@ -52,14 +51,17 @@ func _input(event):
 func generate_new_floor():
 	randomize() # or seed()
 	await make_rooms()
-	print("Rooms have settled... culling rooms")
+	print("Generated room shapes.")
 	cull_rooms()
-	print("Rooms have been culled... pathfinding")
+	print("Removed "+str(ROOM_CULL_PERCENTAGE*100)+"% of generated rooms.")
 	path = find_mst(room_positions)
-	print("path finding complete... waiting for input")
+	print("Path finding complete with "+str(path.get_point_count())+" connections.")
 	make_map()
+	print("Tilemap generated.")
+	print("Cleanup in 1 second.")
 	await get_tree().create_timer(1).timeout
 	cleanup()
+	print("Cleaned up.")
 #	reset_gen()
 
 func make_rooms():
@@ -71,10 +73,10 @@ func make_rooms():
 		var r = Room.instantiate()
 		var w = randi_range(ROOM_MIN_SIZE_TILES, ROOM_MAX_SIZE_TILES)
 		var h = randi_range(ROOM_MIN_SIZE_TILES, ROOM_MAX_SIZE_TILES)
-		print("room size of newly made room is "+str(Vector2(w,h)))
+		#print("room size of newly made room is "+str(Vector2(w,h)))
 		r.make_room(pos, Vector2(w,h)*TILE_SIZE)
 		Rooms.add_child(r)
-	print("Rooms created... waiting for settle")
+	#print("Rooms created... waiting for settle")
 	# wait for all rooms to emit the signal that they are no longer moving
 	for room in Rooms.get_children():
 		await room.not_moving
@@ -113,7 +115,7 @@ func find_mst(nodes : Array):
 	return _path
 
 func make_map():
-	print("POPULATING MAP")
+	#print("POPULATING MAP")
 	Map.clear()
 	var map_rect = Rect2()
 	for room in Rooms.get_children():
@@ -134,10 +136,10 @@ func make_map():
 			temp_count += 1
 			# convert room size in px to amount of tiles, floored to smallest fittable
 			var room_size_map = (room.size / TILE_SIZE).floor()
-			print("proccess room size of "+str(room_size_map))
+			#print("proccess room size of "+str(room_size_map))
 			var room_position_map = Map.local_to_map(room.position)
 			var room_topleftcorner_map = room_position_map - Vector2i(room_size_map/2)
-			print("top left corner is "+str(room_topleftcorner_map))
+			#print("top left corner is "+str(room_topleftcorner_map))
 			for x in range(3, room_size_map.x - 2):
 				for y in range(3, room_size_map.y - 2):
 					Map.set_cell(0, Vector2(room_topleftcorner_map.x + x, room_topleftcorner_map.y + y), 0, tiles.white)
@@ -152,11 +154,11 @@ func make_map():
 					var start = Map.local_to_map(path.get_point_position(closest_point_id))
 					var end = Map.local_to_map(path.get_point_position(connection))
 					carve_path(start, end)
-				corridors.append(closest_point_id)
-				corridors.append(connection)
+					corridors.append(closest_point_id)
+					corridors.append(connection)
 					
-	print(temp_count)
-	print(Rooms.get_child_count())
+#	print(temp_count)
+#	print(Rooms.get_child_count())
 
 func cleanup():
 	Rooms.queue_free()
